@@ -5,7 +5,7 @@ from unicorn.arm_const import *
 from unicorn.arm64_const import *
 from struct import unpack, pack, unpack_from, calcsize
 from idaapi import get_func
-from idc import Qword, GetManyBytes, SelStart, SelEnd, here, ItemSize
+from idc import get_qword, get_bytes, read_selection_start, read_selection_end, here, get_item_size
 from idautils import XrefsTo
 
 PAGE_ALIGN = 0x1000  # 4k
@@ -95,13 +95,13 @@ class Emu(object):
 
     def _getOriginData(self, address, size):
         res = []
-        for offset in xrange(0, size, 64):
-            tmp = GetManyBytes(address + offset, 64)
+        for offset in range(0, size, 64):
+            tmp = get_bytes(address + offset, 64)
             if tmp == None:
-                res.extend([pack("<Q", Qword(address + offset + i)) for i in range(0, 64, 8)])
+                res.extend([pack("<Q", get_qword(address + offset + i)) for i in range(0, 64, 8)])
             else:
                 res.append(tmp)
-        res = "".join(res)
+        res = b"".join(res)
         return res[:size]
 
     def _init(self):
@@ -362,19 +362,19 @@ class Emu(object):
         if address == None: address = here()
         func = get_func(address)
         if retAddr == None:
-            refs = [ref.frm for ref in XrefsTo(func.startEA, 0)]
+            refs = [ref.frm for ref in XrefsTo(func.start_ea, 0)]
             if len(refs) != 0:
-                retAddr = refs[0] + ItemSize(refs[0])
+                retAddr = refs[0] + get_item_size(refs[0])
             else:
                 print("Please offer the return address.")
                 return
-        self._emulate(func.startEA, retAddr, args)
+        self._emulate(func.start_ea, retAddr, args)
         res = self.curUC.reg_read(self.REG_RES)
         return res
 
     def eBlock(self, codeStart=None, codeEnd=None):
-        if codeStart == None: codeStart = SelStart()
-        if codeEnd == None: codeEnd = SelEnd()
+        if codeStart == None: codeStart = read_selection_start()
+        if codeEnd == None: codeEnd = read_selection_end()
         self._emulate(codeStart, codeEnd)
         self._showRegs(self.curUC)
 
